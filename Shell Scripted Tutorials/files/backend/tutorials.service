@@ -1,0 +1,14 @@
+[Unit]
+Description=Tutorials backend
+After=network.target
+Requires=mysql.service
+
+[Service]
+WorkingDirectory=/backend/backend
+Type=simple
+User=backend
+ExecStart=/usr/bin/node /backend/backend/server.js
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
