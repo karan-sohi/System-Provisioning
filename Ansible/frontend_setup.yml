@@ -1,0 +1,47 @@
+---
+# tasks file for frontend
+- name: Make sure the frontend source code is available locally
+  become: true
+  git:
+    repo: https://github.com/bezkoder/react-crud-web-api.git
+    dest: /home/ubuntu/frontend
+    force: yes
+- name: Make sure Node modules are installed
+  become: yes
+  community.general.npm:
+    path: "/home/ubuntu/frontend"
+  register: install_packages
+- name: Make sure Nginx is installed
+  become: true
+  package:
+    name: nginx
+    state: present
+- name: Make sure Nginx is setup properly
+  become: true
+  template:
+    src: default-nginx.conf
+    dest: /etc/nginx/sites-enabled/default
+  register: nginx_config
+- name: Make sure Nginx is enabled and running
+  become: true
+  systemd:
+    name: nginx
+    enabled: yes
+    state: started
+- name: Copy http-common file to frontend directory
+  become: true
+  template:
+    src: http-common.js
+    dest: /home/ubuntu/frontend/src/http-common.js
+- name: Build frontend application
+  become: true
+  command: npm run build
+  args:
+    chdir: "/home/ubuntu/frontend"
+  when: install_packages.changed
+- name: Restart Nginx if the config was changed
+  become: true
+  systemd:
+    name: nginx
+    state: restarted
+  when: nginx_config.changed

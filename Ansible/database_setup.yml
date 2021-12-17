@@ -1,0 +1,36 @@
+---
+# tasks file for database
+- name: Make sure mysql is installed
+  become: true
+  package: 
+    name: mysql-server
+    state: present
+- name: Check for the state file
+  stat: 
+    path: /home/ubuntu/mysql.state
+  register: state_file
+- name: Create a database "{{ backend_db_name }}"
+  become: true
+  shell: mysql -e "CREATE DATABASE {{ backend_db_name }};"
+  when: not state_file.stat.exists
+- name: Create the user in the database
+  become: true
+  shell: mysql -e "CREATE USER {{ backend_db_user }};"
+  when: not state_file.stat.exists
+- name: Set password for the "{{ backend_db_user }}"
+  become: true
+  shell: mysql -e "ALTER USER '{{backend_db_user}}'@'%' IDENTIFIED BY '{{ backend_db_password }}';"
+  when: not state_file.stat.exists
+- name: Grant privileges to "{{backend_db_user}}" on "{{ backend_db_name}}" database
+  become: true
+  shell: mysql -e "GRANT ALL PRIVILEGES ON {{ backend_db_name }}.* TO '{{backend_db_user}}'@'%';"
+  when: not state_file.stat.exists
+- name: Reload the grant tables
+  become: true
+  shell: mysql -e "FLUSH PRIVILEGES;"
+  when: not state_file.stat.exists
+- name: Create the state file if necesssary
+  file: 
+    path: /home/ubuntu/mysql.state
+    state: touch
+  when: not state_file.stat.exists

@@ -1,0 +1,44 @@
+---
+- name: Make sure that ACL package is installed
+  become: yes
+  package:
+    name: acl
+    state: present
+- name: Make sure the backend user exists
+  become: true
+  user: 
+    name: "{{ backend_user }}"
+    state: present
+- name: Create a directory if it does not exist
+  become: yes
+  ansible.builtin.file:
+    path: "{{ backend_dir }}"
+    state: directory
+    mode: '0755'
+    owner: backend
+- name: Make sure that the source code is available locally
+  become: true
+  git:
+    repo: https://github.com/bezkoder/nodejs-express-sequelize-mysql.git
+    dest: "{{ backend_dir }}/backend"
+    force: yes
+- name: Make sure Node modules are installed
+  become: yes
+  community.general.npm:
+    path: "{{ backend_dir }}/backend"
+- name: Template the db.config.js file to the target
+  become: true
+  template:
+    src: db.config.js
+    dest: "{{ backend_dir }}/backend/app/config/db.config.js"
+- name: Copy unit file for backend service
+  become: true
+  copy:
+    src: tutorials.service
+    dest: /etc/systemd/system/tutorials.service
+- name: Make sure tutorials service is running
+  become: true
+  ansible.builtin.systemd:
+    name: tutorials.service
+    state: started
+    daemon_reload: yes
