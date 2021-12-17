@@ -1,0 +1,55 @@
+---
+- name: Create a VPC
+  ec2_vpc_net:
+    name: "{{ AWS_PREFIX }}_VPC"
+    cidr_block: 10.30.0.0/16
+    tags:
+      Name: "{{ AWS_PREFIX }}_VPC"
+  register: aws_vpc_info
+- name: Create subnet for VPC
+  ec2_vpc_subnet:
+    state: present
+    vpc_id: "{{aws_vpc_info.vpc.id}}"
+    cidr: 10.30.10.0/24
+    tags:
+      Name: "{{ AWS_PREFIX }}_SUBNET"
+  register: aws_subnet_info
+- name: Create an Internet Gateway
+  community.aws.ec2_vpc_igw:
+    vpc_id: "{{aws_vpc_info.vpc.id}}"
+    state: present
+    tags: 
+      Name: "{{ AWS_PREFIX }}_IGW"
+  register: aws_igw_info
+- name: Set up routing table
+  ec2_vpc_route_table:
+    vpc_id: "{{aws_vpc_info.vpc.id}}"
+    tags:
+      Name: "{{ AWS_PREFIX }}_RTBL"
+    subnets:
+      - "{{ aws_subnet_info.subnet.id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ aws_igw_info.gateway_id }}"
+- name: Create a security group
+  ec2_group:
+    name: "{{ AWS_PREFIX }}_SECGRP"
+    description: sg with rule description
+    vpc_id: "{{aws_vpc_info.vpc.id}}"
+    rules: 
+      - proto: tcp
+        ports:
+        - 22
+        cidr_ip: 0.0.0.0/0
+        rule_desc: Anyone can SSH into VM
+  register: aws_sg_info
+- name: Create an Ubuntu Instance 
+  community.aws.ec2_instance:
+    name: "{{ AWS_PREFIX }}_EC2"
+    vpc_subnet_id: "{{ aws_subnet_info.subnet.id }}"
+    key_name: key-pair-ubuntu
+    instance_type: t2.micro
+    security_group: "{{ aws_sg_info.group_id }}"
+    network:
+      assign_public_ip: true
+    image_id: ami-036d46416a34a611c
